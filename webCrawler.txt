@@ -1,0 +1,89 @@
+Web crawler
+
+/////////////////////////////////////////////
+
+Scenario:
+	Given a seed, crawl the web.
+
+Needs: How many pages? How long? How large? How often?
+	crawl 1.6m pages/sec
+		1 trillion pages.
+	10p(petabyte) web page storage
+		10k/page
+
+Application:
+	Crawl, TaskService, StorageService
+
+Kilobyte...
+
+/////////////////////////////////////////////
+
+Single-threaded web crawler
+multi-threaded web crawler: When thread_1 waiting for response, thread_2 can initiate request. 
+	1. Sleep
+	2. Condition variable
+	3. Semaphore
+
+Disadvantage for multi-threaded single machine:
+	1. CPU number(context switch cost)
+	2. thread(port) number limit
+	3. network bottleneck
+
+So distributed.
+
+Instead of url_queue, use task_table db.
+
+/////////////////////////////////////////////
+
+thread crawler
+	function run
+		while (url_queue not empty)
+			url = url_queue.dequeue();
+			html = web_page_loader.load(url); //consume
+			url_list = URL_extractor.extract(html); //produce
+			url_queue.enqueue_all(url_list);
+		end
+
+/////////////////////////////////////////////
+
+Producer Consumer Pattern
+
+Consumer <- Buffer Queue <- Producer
+
+/////////////////////////////////////////////
+
+task_table:
+
+id   url     state              priority     available_time
+             idle/working/..	0/1/2...     
+
+/////////////////////////////////////////////
+
+evolve:
+1. URL sharding
+
+2. Handle failure: Exponential back-off.
+	success -> 1 week
+	fail 1 -> 2 weeks
+	fail 2 -> 4 weeks
+	fail 3 -> 8 weeks
+	...
+
+3. Handle update: Exponential increase/decrease
+	if diff with last version -> time / 2 -> page update fast
+	if same with last version -> time * 2 -> page update slow
+
+4. Dead cycle: quota to avoid too much resources to crawl the same domain at the same time.
+	Scheduler 
+
+5. Multi-region diff countries.
+
+/////////////////////////////////////////////
+
+webstorage <--> crawler <--> scheduler <--> task table
+                 |
+                 |
+                web
+
+/////////////////////////////////////////////
+

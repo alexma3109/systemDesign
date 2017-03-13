@@ -1,0 +1,59 @@
+Typeahead
+	Google suggestion
+		prefix -> top n hot key words
+	Twitter Typeahead
+		suggestion + user + hashtag
+
+/////////////////////////////////////////////
+
+Google suggestion
+	Needs
+		DAU(daily active user): 500m
+		Search: 6(chars) * 6(times/user/day) * 500m = 18b
+		QPS: 18b/86400 = 200k
+		peak QPS = QPS * 2 == 400k
+
+	Application
+		queryService
+		DataCollectionService
+
+/////////////////////////////////////////////
+
+QueryService
+	Trie(in memory) ------------> DataCollectionService ---> log file(No SQL db)
+	Serialized Tried(on disk) --> ..................... ---> ...................
+
+Log file: {{who}} {{when}} searched {{what}} very large!
+
+/////////////////////////////////////////////
+
+keyword / hit_count table
+naive(expensive)	SELECT * FROM hit_stats
+					WHERE keyword LIKE '$(key)%'
+					ORDER BY hit_count DESC
+					LIMIT 10
+
+To reduce query time: Trie -> key:value 
+
+Save space. Common prefix doesn't duplicate
+Fast. Stored in memory
+
+if only the end letter store the hit_count, then the time complexity is O(26^n) -> infinite time
+So:
+	the value of 'a' is the whole list of top hot words.['apple', 'adidas', 'amazon', ...]
+	value of 'ad' is: ['ad', 'adidas', ...]
+	Time complexity: O(n) n is the length of prefix.
+
+/////////////////////////////////////////////
+Evolve:
+
+	response time!
+		1. cache result
+		2. pre-fetch: request more results, 1k or 10k instead of 10. 
+
+	reduce size of log file
+		probabilistic logging: log with 1/10k probability. Search 10000 times same words then write in log once.
+
+	Trie is too large? Distributed system. Multi-queryServices
+
+
