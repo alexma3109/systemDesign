@@ -1,0 +1,59 @@
+lookup Service
+	Scenario & Needs
+		read-only
+		10b key-value total 1 TB memory
+		value size = 100KB total 1P
+
+	Application
+		client + server
+
+	Kilobyte
+		Key <--> Value
+		How to store?
+			HashMap -> memory is not enough
+			NoSQL -> (big table) too complex, write is not needed
+		****** {{use GFS}} *********
+
+key point:
+	shard + consistent hash
+	master + slave
+
+//////////////////////////////////////// 
+
+Sort key and use binary search
+	masterServer -> metadata -> consistent hash map (sharding the key) --> server address
+	many slaveServer to store key-value pairs.
+
+//////////////////////////////////////// 
+
+master-slave model for multi-server to maintain lots of disks
+each slaceServer has a key hash map
+
+//////////////////////////////////////// 
+
+Key -> hash map in memory
+
+Disk -> no memory, binary search key-value
+
+Server -> load key hash map to memory
+
+//////////////////////////////////////// 
+
+steps:
+	key 
+	-> masterServer(consistent hash map) -> find server 
+	-> slaveServer (key hash map) -> find chunk id & offset
+	-> find chunk in GFS (handle replica & failure)
+	For GFS, slaveServer is client
+
+Evolve:
+	client can cache metadata since it's a read-only system
+	master 
+		initialize, and do sharding at beginning
+		recover server if it's down
+
+	single master failure
+		double master -> Apache Hadoop Readtime at Facebook
+		multi-master -> Paxos algorithm
+
+

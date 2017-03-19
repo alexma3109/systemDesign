@@ -1,0 +1,101 @@
+Distributed File System
+
+Scenario
+	read/write files
+	multi-machines
+
+Needs
+	file size: > 1000T
+	how many machines: 100k machines
+
+Applications
+	Client --> master --> server1,2,3,...
+
+//////////////////////////////////////////
+
+How one machine store files
+	Disk
+		Metadata --> fileInfo(properties, index)
+		blocks: 1 block == 1KB
+			advantages: 
+				recover block instead of the whole file
+				fragment
+		chunk: 64M = 1000 blocks; 1 new block = 64KB (since the single file is larger)
+			advantages:
+				reduce metadata
+				reduce traffic
+			dis:
+				waste for small files
+		extra large single file: 100P
+			master-slave:
+				ChunkServer1,2,3,...
+				master -> metadata(in memory, frequent visited. Backup on disk) -> index diskOffset
+
+//////////////////////////////////////////
+
+How to write
+	1. client --> file name, chunk id --> master
+	2. master --> chunkServer locations --> client
+	3. client --> data --> chunkServer
+	4. chunkServer --> Done --> client
+
+	reduce master traffic: client <--> chunkServer
+	reduce client traffic: select the leader chunkServer and let leader to write the relica
+
+How to read
+	1. client --> file name, chunk index --> master
+	2. master --> chunk handle, chunk locations --> client
+	3. client --> chunk handle --> chunkserver
+	4. chunkServer --> chunk data --> client
+
+chunk id: One file into n pieces, each has an id.
+chunk handle: series No. for each chunkServer
+
+Master task:
+	metadata for all files
+	Map of file_name + chunk_id --> chunkServer
+		read --> find the correct chunkServer
+		write --> allocate empty chunkServer
+	Cannot let master to do r/w, otherwise QPS bottleneck
+
+//////////////////////////////////////////
+
+Summary:
+	store:
+		normal: metadata, block
+		large: chunk
+		extra, multi-machine: chunkServer + master
+	w/r:
+		master/chunkServer <--> client communication
+
+//////////////////////////////////////////
+
+Evolve:
+	To reduce master traffic and storage, metadata in master has too much info:
+		master metadata only indicates the server 
+		chunkServer has an index for itself for chunk details offset
+
+	Failure/recover
+		GFS(Google file system)
+			checksum
+			read files frequently to make sure it's correct
+			avoid data loss
+				replica
+					the same chunk will be stored in 3 servers, 2 in the same data center, the other remote.
+				select server wisely
+					avoid too much on same server
+					limit too much "recent" storage on the same server
+				recover borken chunk
+					ask master for replica
+			how to find server is down?
+				heartBeat, from chunkServer to master
+			write the same chunk in 3 chunkServer --> client bottleneck(every chunk become 3 chunks)
+				write ont the (closest/least activity) chunkServer
+				first chunkServer write the other 2 chunkServers
+				first chunkServer sum up the succussful message, send 'Done' to client 
+
+
+//////////////////////////////////////////
+
+
+
