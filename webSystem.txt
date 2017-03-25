@@ -1,0 +1,33 @@
+web system
+	DNS, HTTP, Domain, IP Address, URL, Web Server, HTTP Server
+
+/////////////////////////////////////////////
+
+What happend when enter a url
+	DNS(domain name service) server resolve the url <--> ip address
+	browser send http/https request with some info
+	Web Server received request --> HTTP Server listening port 80
+		HTTP Server: Apache, Unicorn, Gunicorn, Uswgi
+	HTTP Server send request to Web Application
+		Web Application: Django, Ruby on Rails, NodeJS
+			Django -> instgram, pintrest, dropbox
+			Rails on Ruby -> Square, airbnb, twitter
+			NodeJS -> UBER, Linkedin, netflix
+	Web Application handle request
+		based on the path '/' to find the logic module
+		based on GET/POST/DELTE/PUT... to decide how to deal with data
+		get data from file system or database
+		form a html page and send back
+
+Ajax for 反向代理， 隐藏80端口，更安全
+
+/////////////////////////////////////////////
+
+user <--> DNS
+user <--> Web Server(hardware)
+			HTTP Server(software)
+			Web Application(software) <--> database
+
+DNS <--> firewall <--> load balancer <--> Web Server/Async Server <--> Database/Memcache
+
+/////////////////////////////////////////////

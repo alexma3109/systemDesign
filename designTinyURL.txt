@@ -1,0 +1,129 @@
+Design tiny URL
+bitly/Google
+
+Ask: S + N
+Analyse: A + K (small/large load may be different)
+More: E
+
+/////////////////////////////////////////////
+
+S:
+	short -> long
+	http://bit.ly/1UloQB6 -> to bit.ly -> decode and send back with status 301 -> user redirect to target.
+
+N:
+	QPS:
+		Read -> 100M (user) * 0.1(messages) / 86400 (sec) -> 100
+			peak: 200
+		Write -> 100M (user) * 1(click on url) / 86400 (sec) -> 1k
+			peak: 2k
+		2k QPS -> 1 MySQL with SSD harddisk is OK
+	Storage:
+		100M * 0.1 -> 10M messages
+		10M * 100 (characters/message) -> 1G
+		1T harddisk can be used 3 years
+
+A:
+	only one: url service
+
+	Class design:
+		urlService.encode(long_url)
+		urlService.decode(short_url)
+
+	port design:
+		GET /<short_url>
+		POST /data/shorten/
+			data = {url:...}
+
+K:
+	select database
+	schema table
+
+/////////////////////////////////////////////
+
+SQL/NoSQL
+	Whether need transaction  --> no --> NoSQL + 1
+	Whether need many Query   --> no --> NoSQL + 1
+	SQL less code and more support from framework --> no much code --> NoSQL + 1
+	Whether need sequential ID --> depends
+		SQL has auto-increment id
+	QPS -> NoSQL better --> small QPS --> MySQL + 1
+	Scale -> NoSQL has replica & sharding/MySQL only has master/slave --> no need sharding --> MySQL + 1
+
+/////////////////////////////////////////////
+
+base62 --> 0-9,a-z,A-Z
+
+/////////////////////////////////////////////
+
+long_url --> web server --> check long_url in data table --> true/false --> insert new id --> return id --> return short_url
+
+short_url --> web server --> check short_url in data table --> return long_url --> return 301 redirect
+
+/////////////////////////////////////////////
+
+Evolve
+	cache short_url to imporve read speed. (memcached)
+
+	geolocation --> more web servers
+	dynamic dns resolve + load balancer
+	one MySQL + distributed memcached
+
+/////////////////////////////////////////////
+
+How to scale
+	reason: single point failure, more writes cannot cache, more request
+
+	horizontal sharding
+		use id as shard key
+			short to long(read): short_url --> id --> look up web server
+			long to short(write): broadcast to all db
+			difficult to have incremental id
+
+		
+		shard_key = hash(long_url) % 62 
+		short_url + shard_key --> 7 chars
+		Can get hash_key from either short or long url, no need to broadcast
+
+/////////////////////////////////////////////
+
+Customize short_url --> new customURLtable
+	lookup long_url --> customURLTable first, then urlTable
+	create normal short_url --> check customURLTable, then lookup and create in URLTable
+	create custom short_url --> check URLTable first, then lookup and create in customURLTable
+
+/////////////////////////////////////////////
+
+Limit spam
+	rate limiter: ruby, django
+		S:
+			most cases limit POST. Limit specific feature: IP, user, email
+		N:
+			return 4xx if exceeds limit
+		A:
+		K:
+			log the feature, when did what event
+			only keep less 1 day then delete.
+			must be efficient, faster than db, use memcached.
+
+			for t in 0~59 do
+				key = event + feature + (current_timestamp - t)
+				sum += memecached.get(key, default = 0)
+
+		if check times/day, only loop once every hour. No need to be precise
+
+/////////////////////////////////////////////
+
+analysis
+	more write
+	need permanet storage
+	SQL/NOSQL/file system
+	2k QPS --> write in memory first and move to db every 15 sec, QPS --> 1/15
+		multi layer bucket concept
+			today: data / sec
+			tomorrow: data / 5min
+			last month: data / hour
+			last year: data / week
+
+		aggregate: to make data get together
+		the data after aggregate is called: retention
